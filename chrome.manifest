@@ -1,0 +1,5 @@
+content rsstab content/
+skin rsstab classic/1.0 skin/
+resource rsstab modules/
+overlay chrome://messenger/content/messenger.xul chrome://rsstab/content/overlay.xul
+#style chrome://global/content/customizeToolbar.xul chrome://rsstab/skin/overlay.css
