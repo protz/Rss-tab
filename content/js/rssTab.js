@@ -124,7 +124,7 @@ Feed.prototype = {
       msgHdrsMarkAsRead([aMsgHdr], true);
       this.tabmail.openTab("message", {
         msgHdr: aMsgHdr,
-        background: true,
+        background: event.button, // 1 is middle-click, 0 is left click
       });
       li.classList.remove("unread");
     }.bind(this), false);
