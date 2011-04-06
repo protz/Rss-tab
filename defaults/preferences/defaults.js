@@ -1,1 +1,1 @@
-pref("emailchat.path", "emailchat");
+pref("rsstab.path", "rsstab");

@@ -43,6 +43,7 @@ const Cr = Components.results;
 
 Cu.import("resource:///modules/mailServices.js");
 Cu.import("resource:///modules/iteratorUtils.jsm"); // for fixIterator
+Cu.import("resource://rsstab/stdlib/msgHdrUtils.js");
 Cu.import("resource://rsstab/log.js");
 
 const kMaxMessages = 5;
@@ -51,6 +52,24 @@ const kXulNs = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 let Log = setupLogging("RssTab.UI");
 
 let folderToDiv = {};
+
+function updateUnreadCount(aFolder, aUnread) {
+  let div = folderToDiv[aFolder.URI];
+  let unreadDiv = div.querySelector(".unreadCount");
+  unreadDiv.innerHTML = "";
+
+  let unread = aFolder.getNumUnread(true) - aUnread;
+  if (unread > 0) {
+    let a = document.createElement("a");
+    a.textContent = unread + " more unread item"
+      + (unread > 1 ? "s" : "");
+    a.setAttribute("href", "javascript:");
+    unreadDiv.appendChild(a);
+    a.addEventListener("click", function (event) {
+      tabmail.openTab("folder", { folder: aFolder });
+    }, false);
+  }
+}
 
 function createFeedDiv(aFolder, aElements) {
   let div = document.createElement("div");
@@ -77,6 +96,7 @@ function createFeedDiv(aFolder, aElements) {
     label.setAttribute("flex", "1");
     label.setAttribute("value", title);
     label.addEventListener("click", function (event) {
+      msgHdrsMarkAsRead([msgHdr], true);
       tabmail.openTab("message", {
         msgHdr: msgHdr,
         background: true,
@@ -92,20 +112,12 @@ function createFeedDiv(aFolder, aElements) {
     ol.appendChild(li);
   }
 
+  folderToDiv[aFolder.URI] = div;
+
   let unreadDiv = document.createElement("div");
   unreadDiv.classList.add("unreadCount");
-  unread = aFolder.getNumUnread(true) - unread;
-  if (unread > 0) {
-    let a = document.createElement("a");
-    a.textContent = unread + " more unread item"
-      + (unread > 1 ? "s" : "");
-    a.setAttribute("href", "javascript:");
-    unreadDiv.appendChild(a);
-    a.addEventListener("click", function (event) {
-      tabmail.openTab("folder", { folder: aFolder });
-    }, false);
-  }
   div.appendChild(unreadDiv);
+  updateUnreadCount(aFolder, unread);
 
   let mainDiv = document.getElementsByClassName("listRow")[0];
   mainDiv.appendChild(div);
