@@ -56,32 +56,17 @@ let folderToFeed = {};
 function Feed (aFolder) {
   // Remember the folder we're representing.
   this.folder = aFolder;
-
-  // Get the first few messages in that folder.
-  let database = this.folder.msgDatabase;
-  let messages = [];
-  let i = 0;
-  for each (let msgHdr in fixIterator(database.EnumerateMessages(), Ci.nsIMsgDBHdr)) {
-    let title = msgHdr.mime2DecodedSubject;
-    messages.push({
-      title: title,
-      msgHdr: msgHdr,
-    });
-    if (i >= kMaxMessages)
-      break;
-    i++;
-  }
-  // And don't forget to close the database.
-  this.folder.msgDatabase = null;
+  this.tabmail = window.top.document.getElementById("tabmail");
 
   // Output the thing!
-  this.div = this.create(messages);
+  this.div = this.create();
+  this.populate();
   this.updateUnreadCount();
 }
 
 Feed.prototype = {
 
-  create: function _Feed_create(aElements) {
+  create: function _Feed_create() {
     let div = document.createElement("div");
     div.classList.add("listContainer");
     div.classList.add("c2");
@@ -95,33 +80,6 @@ Feed.prototype = {
     let ol = document.createElement("ol");
     innerDiv.appendChild(ol);
 
-    let unread = 0;
-    let tabmail = window.top.document.getElementById("tabmail");
-    for each (let [, o] in Iterator(aElements)) {
-      let { msgHdr, title } = o;
-      let li = document.createElement("li");
-      let hbox = document.createElementNS(kXulNs, "xul:hbox");
-      let label = document.createElementNS(kXulNs, "xul:label");
-      label.setAttribute("crop", "end");
-      label.setAttribute("flex", "1");
-      label.setAttribute("value", title);
-      label.addEventListener("click", function (event) {
-        msgHdrsMarkAsRead([msgHdr], true);
-        tabmail.openTab("message", {
-          msgHdr: msgHdr,
-          background: true,
-        });
-        li.classList.remove("unread");
-      }, false);
-      if (!msgHdr.isRead) {
-        li.classList.add("unread");
-        unread++;
-      }
-      hbox.appendChild(label);
-      li.appendChild(hbox);
-      ol.appendChild(li);
-    }
-
     let unreadDiv = document.createElement("div");
     unreadDiv.classList.add("unreadCount");
     div.appendChild(unreadDiv);
@@ -132,6 +90,61 @@ Feed.prototype = {
     return div;
   },
 
+  populate: function _Feed_populate() {
+    // Get the first few messages in that folder.
+    let database = this.folder.msgDatabase;
+    let messages = [];
+    let oldest = 0;
+    for each (let msgHdr in fixIterator(database.EnumerateMessages(), Ci.nsIMsgDBHdr)) {
+      if (msgHdr.date > oldest) {
+        messages.push(msgHdr);
+      }
+      if (messages.length > kMaxMessages) {
+        messages.sort(function (x, y) x.date - y.date);
+        oldest = messages.shift().date;
+      }
+    }
+    let n = Math.min(kMaxMessages, messages.length);
+    for (let i = 0; i < n; ++i)
+      this.addItem(messages[i]);
+    // And don't forget to close the database.
+    this.folder.msgDatabase = null;
+  },
+
+  addItem: function _Feed_addItem(aMsgHdr) {
+    let ol = this.div.getElementsByTagName("ol")[0];
+    let li = document.createElement("li");
+    let hbox = document.createElementNS(kXulNs, "xul:hbox");
+    let label = document.createElementNS(kXulNs, "xul:label");
+    label.setAttribute("crop", "end");
+    label.setAttribute("flex", "1");
+    label.setAttribute("value", aMsgHdr.mime2DecodedSubject);
+    label.addEventListener("click", function (event) {
+      msgHdrsMarkAsRead([aMsgHdr], true);
+      this.tabmail.openTab("message", {
+        msgHdr: aMsgHdr,
+        background: true,
+      });
+      li.classList.remove("unread");
+    }.bind(this), false);
+    if (!aMsgHdr.isRead)
+      li.classList.add("unread");
+    hbox.appendChild(label);
+    li.appendChild(hbox);
+    if (!ol.children.length)
+      ol.appendChild(li);
+    else
+      ol.insertBefore(li, ol.firstElementChild);
+  },
+
+  addMessage: function _Feed_addMessage(aMsgHdr) {
+    this.addItem(aMsgHdr);
+    let ol = this.div.getElementsByTagName("ol")[0];
+    // We added at most one message
+    if (ol.children.length > kMaxMessages)
+      ol.removeChild(ol.firstElementChild);
+  },
+
   updateUnreadCount: function _Feed_updateUnreadCount(aUnread) {
     let unreadDiv = this.div.querySelector(".unreadCount");
     unreadDiv.innerHTML = "";
@@ -140,12 +153,12 @@ Feed.prototype = {
       - this.div.getElementsByClassName("unread").length;
     if (unread > 0) {
       let a = document.createElement("a");
-      a.textContent = unread + " more unread item"
+      a.textContent = "and " + unread + " more unread item"
         + (unread > 1 ? "s" : "");
       a.setAttribute("href", "javascript:");
       unreadDiv.appendChild(a);
       a.addEventListener("click", function (event) {
-        tabmail.openTab("folder", { folder: this.folder });
+        this.tabmail.openTab("folder", { folder: this.folder });
       }.bind(this), false);
     }
   },
@@ -158,8 +171,10 @@ function findFolders(aFolder) {
   aFolder.ListDescendents(allFolders);
   for each (let folder in fixIterator(allFolders, Ci.nsIMsgFolder)) {
     if (!(folder.flags & Ci.nsMsgFolderFlags.Trash)
-        && !(folder.flags & Ci.nsMsgFolderFlags.Archive))
+        && !(folder.flags & Ci.nsMsgFolderFlags.Archive)) {
       folderToFeed[folder.URI] = new Feed(folder);
+      Log.debug("New feed for", folder.URI);
+    }
   }
 }
 
@@ -172,8 +187,25 @@ function createAllFeeds() {
   }
 }
 
+function registerListener() {
+  let listener = {
+    msgAdded: function _listener_msgAdded(aMsgHdr) {
+      let uri = aMsgHdr.folder.URI;
+      Log.debug("New message", uri);
+      if (uri in folderToFeed) {
+        folderToFeed[uri].addMessage(aMsgHdr);
+      }
+    },
+  };
+  MailServices.mfn.addListener(listener, MailServices.mfn.msgAdded);
+  window.addEventListener("unload", function () {
+    MailServices.mfn.removeListener(listener, MailServices.mfn.msgAdded);
+  }, false);
+}
+
 window.addEventListener("load", function () {
   createAllFeeds();
-  // registerListener();
+  registerListener();
   window.frameElement.setAttribute("context", "mailContext"); // ARGH
+  window.frameElement.setAttribute("tooltip", "aHTMLTooltip"); // ARGH
 }, false);
