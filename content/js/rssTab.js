@@ -52,6 +52,7 @@ const kXulNs = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 let Log = setupLogging("RssTab.UI");
 
 let folderToFeed = {};
+let gAnimating = false;
 
 function Feed (aFolder) {
   // Remember the folder we're representing.
@@ -144,6 +145,7 @@ Feed.prototype = {
     if (ol.children.length > kMaxMessages)
       ol.removeChild(ol.children[ol.children.length - 1]);
     this.updateUnreadCount();
+    gAnimating = true;
   },
 
   updateUnreadCount: function _Feed_updateUnreadCount(aUnread) {
@@ -203,9 +205,26 @@ function registerListener() {
   }, false);
 }
 
+function registerAnimation() {
+  window.addEventListener("mousemove", function () {
+    gAnimating = false;
+    document.title = "RSS Dashboard";
+  }, false);
+  (function animate(str) {
+    if (gAnimating) {
+      document.title = str;
+      let c = str[0];
+      str = str.substring(1, str.length);
+      str += c;
+    }
+    setTimeout(function () animate(str), 100);
+  })("New message(s)...     "); // the spaces in the string are U+00A0
+}
+
 window.addEventListener("load", function () {
   createAllFeeds();
   registerListener();
+  registerAnimation();
   window.frameElement.setAttribute("context", "mailContext"); // ARGH
   window.frameElement.setAttribute("tooltip", "aHTMLTooltip"); // ARGH
 }, false);
