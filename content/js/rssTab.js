@@ -51,80 +51,14 @@ const kXulNs = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 
 let Log = setupLogging("RssTab.UI");
 
-let folderToDiv = {};
+let folderToFeed = {};
 
-function updateUnreadCount(aFolder, aUnread) {
-  let div = folderToDiv[aFolder.URI];
-  let unreadDiv = div.querySelector(".unreadCount");
-  unreadDiv.innerHTML = "";
+function Feed (aFolder) {
+  // Remember the folder we're representing.
+  this.folder = aFolder;
 
-  let unread = aFolder.getNumUnread(true) - aUnread;
-  if (unread > 0) {
-    let a = document.createElement("a");
-    a.textContent = unread + " more unread item"
-      + (unread > 1 ? "s" : "");
-    a.setAttribute("href", "javascript:");
-    unreadDiv.appendChild(a);
-    a.addEventListener("click", function (event) {
-      tabmail.openTab("folder", { folder: aFolder });
-    }, false);
-  }
-}
-
-function createFeedDiv(aFolder, aElements) {
-  let div = document.createElement("div");
-  div.classList.add("listContainer");
-  div.classList.add("c2");
-  div.classList.add("border");
-  let h2 = document.createElement("h2");
-  h2.textContent = aFolder.prettiestName;
-  let innerDiv = document.createElement("div");
-  innerDiv.classList.add("d2");
-  div.appendChild(h2);
-  div.appendChild(innerDiv);
-  let ol = document.createElement("ol");
-  innerDiv.appendChild(ol);
-
-  let unread = 0;
-  let tabmail = window.top.document.getElementById("tabmail");
-  for each (let [, o] in Iterator(aElements)) {
-    let { msgHdr, title } = o;
-    let li = document.createElement("li");
-    let hbox = document.createElementNS(kXulNs, "xul:hbox");
-    let label = document.createElementNS(kXulNs, "xul:label");
-    label.setAttribute("crop", "end");
-    label.setAttribute("flex", "1");
-    label.setAttribute("value", title);
-    label.addEventListener("click", function (event) {
-      msgHdrsMarkAsRead([msgHdr], true);
-      tabmail.openTab("message", {
-        msgHdr: msgHdr,
-        background: true,
-      });
-      li.classList.remove("unread");
-    }, false);
-    if (!msgHdr.isRead) {
-      li.classList.add("unread");
-      unread++;
-    }
-    hbox.appendChild(label);
-    li.appendChild(hbox);
-    ol.appendChild(li);
-  }
-
-  folderToDiv[aFolder.URI] = div;
-
-  let unreadDiv = document.createElement("div");
-  unreadDiv.classList.add("unreadCount");
-  div.appendChild(unreadDiv);
-  updateUnreadCount(aFolder, unread);
-
-  let mainDiv = document.getElementsByClassName("listRow")[0];
-  mainDiv.appendChild(div);
-}
-
-function listMessages(aFolder) {
-  let database = aFolder.msgDatabase;
+  // Get the first few messages in that folder.
+  let database = this.folder.msgDatabase;
   let messages = [];
   let i = 0;
   for each (let msgHdr in fixIterator(database.EnumerateMessages(), Ci.nsIMsgDBHdr)) {
@@ -137,9 +71,85 @@ function listMessages(aFolder) {
       break;
     i++;
   }
-  // hehe don't forget to close the database
-  aFolder.msgDatabase = null;
-  createFeedDiv(aFolder, messages);
+  // And don't forget to close the database.
+  this.folder.msgDatabase = null;
+
+  // Output the thing!
+  this.div = this.create(messages);
+  this.updateUnreadCount();
+}
+
+Feed.prototype = {
+
+  create: function _Feed_create(aElements) {
+    let div = document.createElement("div");
+    div.classList.add("listContainer");
+    div.classList.add("c2");
+    div.classList.add("border");
+    let h2 = document.createElement("h2");
+    h2.textContent = this.folder.prettiestName;
+    let innerDiv = document.createElement("div");
+    innerDiv.classList.add("d2");
+    div.appendChild(h2);
+    div.appendChild(innerDiv);
+    let ol = document.createElement("ol");
+    innerDiv.appendChild(ol);
+
+    let unread = 0;
+    let tabmail = window.top.document.getElementById("tabmail");
+    for each (let [, o] in Iterator(aElements)) {
+      let { msgHdr, title } = o;
+      let li = document.createElement("li");
+      let hbox = document.createElementNS(kXulNs, "xul:hbox");
+      let label = document.createElementNS(kXulNs, "xul:label");
+      label.setAttribute("crop", "end");
+      label.setAttribute("flex", "1");
+      label.setAttribute("value", title);
+      label.addEventListener("click", function (event) {
+        msgHdrsMarkAsRead([msgHdr], true);
+        tabmail.openTab("message", {
+          msgHdr: msgHdr,
+          background: true,
+        });
+        li.classList.remove("unread");
+      }, false);
+      if (!msgHdr.isRead) {
+        li.classList.add("unread");
+        unread++;
+      }
+      hbox.appendChild(label);
+      li.appendChild(hbox);
+      ol.appendChild(li);
+    }
+
+    let unreadDiv = document.createElement("div");
+    unreadDiv.classList.add("unreadCount");
+    div.appendChild(unreadDiv);
+
+    let mainDiv = document.getElementsByClassName("listRow")[0];
+    mainDiv.appendChild(div);
+
+    return div;
+  },
+
+  updateUnreadCount: function _Feed_updateUnreadCount(aUnread) {
+    let unreadDiv = this.div.querySelector(".unreadCount");
+    unreadDiv.innerHTML = "";
+
+    let unread = this.folder.getNumUnread(true)
+      - this.div.getElementsByClassName("unread").length;
+    if (unread > 0) {
+      let a = document.createElement("a");
+      a.textContent = unread + " more unread item"
+        + (unread > 1 ? "s" : "");
+      a.setAttribute("href", "javascript:");
+      unreadDiv.appendChild(a);
+      a.addEventListener("click", function (event) {
+        tabmail.openTab("folder", { folder: this.folder });
+      }.bind(this), false);
+    }
+  },
+
 }
 
 function findFolders(aFolder) {
@@ -149,11 +159,11 @@ function findFolders(aFolder) {
   for each (let folder in fixIterator(allFolders, Ci.nsIMsgFolder)) {
     if (!(folder.flags & Ci.nsMsgFolderFlags.Trash)
         && !(folder.flags & Ci.nsMsgFolderFlags.Archive))
-      listMessages(folder);
+      folderToFeed[folder.URI] = new Feed(folder);
   }
 }
 
-function fillBuckets() {
+function createAllFeeds() {
   let accounts = MailServices.accounts.accounts;
   for each (let account in fixIterator(accounts, Ci.nsIMsgAccount)) {
     if (account.incomingServer instanceof Ci.nsIRssIncomingServer) {
@@ -163,7 +173,7 @@ function fillBuckets() {
 }
 
 window.addEventListener("load", function () {
-  fillBuckets();
-  //registerListener();
+  createAllFeeds();
+  // registerListener();
   window.frameElement.setAttribute("context", "mailContext"); // ARGH
 }, false);
