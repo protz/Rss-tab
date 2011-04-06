@@ -142,7 +142,8 @@ Feed.prototype = {
     let ol = this.div.getElementsByTagName("ol")[0];
     // We added at most one message
     if (ol.children.length > kMaxMessages)
-      ol.removeChild(ol.firstElementChild);
+      ol.removeChild(ol.children[ol.children.length - 1]);
+    this.updateUnreadCount();
   },
 
   updateUnreadCount: function _Feed_updateUnreadCount(aUnread) {
@@ -191,7 +192,6 @@ function registerListener() {
   let listener = {
     msgAdded: function _listener_msgAdded(aMsgHdr) {
       let uri = aMsgHdr.folder.URI;
-      Log.debug("New message", uri);
       if (uri in folderToFeed) {
         folderToFeed[uri].addMessage(aMsgHdr);
       }
