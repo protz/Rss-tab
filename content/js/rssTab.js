@@ -117,7 +117,8 @@ function findFolders(aFolder) {
                    .createInstance(Ci.nsISupportsArray);
   aFolder.ListDescendents(allFolders);
   for each (let folder in fixIterator(allFolders, Ci.nsIMsgFolder)) {
-    if (!(folder.flags & Ci.nsMsgFolderFlags.Trash))
+    if (!(folder.flags & Ci.nsMsgFolderFlags.Trash)
+        && !(folder.flags & Ci.nsMsgFolderFlags.Archive))
       listMessages(folder);
   }
 }
