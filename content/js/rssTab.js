@@ -52,13 +52,13 @@ let Log = setupLogging("RssTab.UI");
 
 let folderToDiv = {};
 
-function createFeedDiv(aTitle, aElements) {
+function createFeedDiv(aFolder, aElements) {
   let div = document.createElement("div");
   div.classList.add("listContainer");
   div.classList.add("c2");
   div.classList.add("border");
   let h2 = document.createElement("h2");
-  h2.textContent = aTitle;
+  h2.textContent = aFolder.prettiestName;
   let innerDiv = document.createElement("div");
   innerDiv.classList.add("d2");
   div.appendChild(h2);
@@ -66,6 +66,7 @@ function createFeedDiv(aTitle, aElements) {
   let ol = document.createElement("ol");
   innerDiv.appendChild(ol);
 
+  let unread = 0;
   let tabmail = window.top.document.getElementById("tabmail");
   for each (let [, o] in Iterator(aElements)) {
     let { msgHdr, title } = o;
@@ -82,12 +83,29 @@ function createFeedDiv(aTitle, aElements) {
       });
       li.classList.remove("unread");
     }, false);
-    if (!msgHdr.isRead)
+    if (!msgHdr.isRead) {
       li.classList.add("unread");
+      unread++;
+    }
     hbox.appendChild(label);
     li.appendChild(hbox);
     ol.appendChild(li);
   }
+
+  let unreadDiv = document.createElement("div");
+  unreadDiv.classList.add("unreadCount");
+  unread = aFolder.getNumUnread(true) - unread;
+  if (unread > 0) {
+    let a = document.createElement("a");
+    a.textContent = unread + " more unread item"
+      + (unread > 1 ? "s" : "");
+    a.setAttribute("href", "javascript:");
+    unreadDiv.appendChild(a);
+    a.addEventListener("click", function (event) {
+      tabmail.openTab("folder", { folder: aFolder });
+    }, false);
+  }
+  div.appendChild(unreadDiv);
 
   let mainDiv = document.getElementsByClassName("listRow")[0];
   mainDiv.appendChild(div);
@@ -109,7 +127,7 @@ function listMessages(aFolder) {
   }
   // hehe don't forget to close the database
   aFolder.msgDatabase = null;
-  createFeedDiv(aFolder.prettiestName, messages);
+  createFeedDiv(aFolder, messages);
 }
 
 function findFolders(aFolder) {

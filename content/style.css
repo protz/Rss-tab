@@ -20,13 +20,13 @@ body {
   background-color: #fafafa;
 }
 
-label {
+a, label {
   color: #3875D7;
   text-decoration: none;
   cursor: pointer;
 }
 
-label:hover {
+a:hover, label:hover {
   text-decoration: underline;
 }
 
@@ -267,6 +267,13 @@ img.centered {
   color: #888;
   font-size: 11px;
   display: block;
+}
+
+.unreadCount {
+  text-align: right;
+  font-style: italic;
+  margin-top: .8em;
+  font-size: 10px;
 }
 
 #footer {
