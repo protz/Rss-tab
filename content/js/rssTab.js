@@ -74,6 +74,18 @@ Feed.prototype = {
     div.classList.add("border");
     let h2 = document.createElement("h2");
     h2.textContent = this.folder.prettiestName;
+    h2.classList.add("feedTitle");
+    let span = document.createElement("span");
+    let img = document.createElement("img");
+    img.src = "chrome://rsstab/skin/unread.png";
+    img.addEventListener("click", function (event) {
+      if (event.button == 0) {
+        this.markAllRead();
+      }
+    }.bind(this), false);
+    span.appendChild(img);
+    h2.appendChild(span);
+
     let innerDiv = document.createElement("div");
     innerDiv.classList.add("d2");
     div.appendChild(h2);
@@ -120,6 +132,7 @@ Feed.prototype = {
     label.setAttribute("crop", "end");
     label.setAttribute("flex", "1");
     label.setAttribute("value", aMsgHdr.mime2DecodedSubject);
+    label.setAttribute("tooltiptext", aMsgHdr.mime2DecodedSubject);
     label.addEventListener("click", function (event) {
       msgHdrsMarkAsRead([aMsgHdr], true);
       this.tabmail.openTab("message", {
@@ -152,7 +165,8 @@ Feed.prototype = {
     let unreadDiv = this.div.querySelector(".unreadCount");
     unreadDiv.innerHTML = "";
 
-    let unread = this.folder.getNumUnread(true)
+    let totalUnread = this.folder.getNumUnread(true);
+    let unread = totalUnread
       - this.div.getElementsByClassName("unread").length;
     if (unread > 0) {
       let a = document.createElement("a");
@@ -161,9 +175,25 @@ Feed.prototype = {
       a.setAttribute("href", "javascript:");
       unreadDiv.appendChild(a);
       a.addEventListener("click", function (event) {
-        this.tabmail.openTab("folder", { folder: this.folder });
+        this.tabmail.openTab("folder", {
+          folder: this.folder,
+          background: event.button, // 1 is middle-click, 0 is left click
+        });
       }.bind(this), false);
     }
+
+    if (totalUnread)
+      this.div.classList.add("hasUnread");
+    else
+      this.div.classList.remove("hasUnread");
+  },
+
+  markAllRead: function _Feed_markAllRead() {
+    this.folder.markAllMessagesRead(top.msgWindow);
+    this.updateUnreadCount();
+    let unread = this.div.getElementsByClassName("unread");
+    for (let i = unread.length - 1; i >= 0; --i)
+      unread[i].classList.remove("unread");
   },
 
 }
