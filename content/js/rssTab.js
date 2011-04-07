@@ -54,6 +54,13 @@ let Log = setupLogging("RssTab.UI");
 let folderToFeed = {};
 let gAnimating = false;
 
+let feedDownloader = Cc["@mozilla.org/newsblog-feed-downloader;1"]
+                     .getService(Ci.nsINewsBlogFeedDownloader);
+
+function folderToFeedUrls(aFolder) {
+  return aFolder.msgDatabase.dBFolderInfo.getCharProperty("feedUrl");
+}
+
 function Feed (aFolder) {
   // Remember the folder we're representing.
   this.folder = aFolder;
@@ -68,12 +75,17 @@ function Feed (aFolder) {
 Feed.prototype = {
 
   create: function _Feed_create() {
+    let feedUrls = folderToFeedUrls(this.folder).split("|");
+    let feedUrl = feedUrls[0] || feedUrls[1];
     let div = document.createElement("div");
     div.classList.add("listContainer");
     div.classList.add("c2");
     div.classList.add("border");
     let h2 = document.createElement("h2");
-    h2.textContent = this.folder.prettiestName;
+    let favicon = document.createElement("img");
+    favicon.setAttribute("src", "http://getfavicon.appspot.com/" + encodeURI(feedUrl));
+    h2.appendChild(favicon);
+    h2.appendChild(document.createTextNode(this.folder.prettiestName));
     h2.classList.add("feedTitle");
     let span = document.createElement("span");
     let img = document.createElement("img");
@@ -140,6 +152,7 @@ Feed.prototype = {
         background: event.button, // 1 is middle-click, 0 is left click
       });
       li.classList.remove("unread");
+      this.updateUnreadCount();
     }.bind(this), false);
     if (!aMsgHdr.isRead)
       li.classList.add("unread");

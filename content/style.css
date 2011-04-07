@@ -93,12 +93,18 @@ a:hover, label:hover {
 
 #header {
   width: 100%;
-  padding: 10px 0;
+  padding: 10px 0 0 0!important;
   background-color: #fff;
 }
 
 #header h1 {
-  font-size: 12px;
+  font-size: 40px;
+  font-family: 'Pacifico', arial, serif;
+  color: #B85520;
+}
+
+#header > div {
+  margin-bottom: 0;
 }
 
 .status {
@@ -119,16 +125,24 @@ h2 {
   -webkit-border-radius: 5px 5px 0 0;
 }
 
+h2 > img /* favicon */ {
+  vertical-align: text-top;
+  margin-right: 8px;
+  height: 16px;
+  width: 16px;
+}
+
 .feedTitle span {
   float: right;
 }
 
-.feedTitle img {
+.feedTitle span img {
   cursor: pointer;
   display: none;
+  vertical-align: middle;
 }
 
-.hasUnread .feedTitle img {
+.hasUnread .feedTitle span img {
   display: inline;
 }
 
