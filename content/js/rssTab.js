@@ -212,6 +212,7 @@ Feed.prototype = {
 }
 
 function findFolders(aFolder) {
+  let registered = false;
   let allFolders = Cc["@mozilla.org/supports-array;1"]
                    .createInstance(Ci.nsISupportsArray);
   aFolder.ListDescendents(allFolders);
@@ -220,6 +221,14 @@ function findFolders(aFolder) {
         && !(folder.flags & Ci.nsMsgFolderFlags.Archive)) {
       folderToFeed[folder.URI] = new Feed(folder);
       Log.debug("New feed for", folder.URI);
+      // Register the "manage subscriptions" action... we can't use the root
+      // folder, I don't know why, so use the first one we find.
+      if (!registered) {
+        registered = true;
+        document.getElementById("subscribe").addEventListener("click", function () {
+          top.openSubscriptionsDialog(folder);
+        }, false);
+      }
     }
   }
 }
